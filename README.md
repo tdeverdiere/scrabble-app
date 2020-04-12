@@ -66,3 +66,8 @@ This section has moved here: https://facebook.github.io/create-react-app/docs/de
 ### `npm run build` fails to minify
 
 This section has moved here: https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify
+
+# Serveur
+Le serveur doit pouvoir renvoyer les nouvelles positions aux autres joueurs.
+
+# Tableau provenant du serveur

@@ -1,13 +1,155 @@
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font: 14px "Century Gothic", Futura, sans-serif;
+    margin: 10px;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+ol, ul {
+    padding-left: 30px;
+}
+
+.board-row:after {
+    clear: both;
+    content: "";
+    display: table;
+}
+
+.status {
+    margin-bottom: 10px;
+}
+
+.square-mct {
+    background: #ff0000;
+}
+
+.square-mcd {
+    background: #ffa1d1;
+}
+
+.square-start {
+    background: #ffa1d1;
+}
+
+.square-lct {
+    background: #0000ff;
+}
+
+.square-lcd {
+    background: #a4deff;
+}
+
+
+.square-standard {
+    background: #2eaa6d;
+}
+
+.letter {
+    position: relative;
+    top: 15px;
+    font-family: "Arial";
+    font-weight: bold;
+    font-size: 26px;
+}
+
+.point {
+    position: relative;
+    top: 9px;
+    left: 15px;
+    font-family: "Arial Narrow";
+    font-size: 10px;
+}
+
+.square-letter {
+    border: 1px solid #BBB;
+    border-radius: 4px;
+    background: #FFF573;
+    border-radius: 3px;
+    height: 48px;
+    width: 48px;
+    line-height: 20px;
+}
+
+.square-empty {
+    border: 2px solid #999;
+    height: 50px;
+    width: 50px;
+    font-family: "Arial Narrow";
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 16px;
+}
+
+.square {
+    float: left;
+    margin-right: -1px;
+    margin-top: -1px;
+    padding: 0;
+    text-align: center;
+}
+
+.square:focus {
+    outline: none;
+}
+
+.kbd-navigation .square:focus {
+    background: #ddd;
+}
+
+.game {
+    display: flex;
+    flex-direction: row;
+}
+
+.game-board {
+    width: auto;
+}
+
+.game-side {
+    display: block;
+    margin-left: 20px;
+    width: 800px;
+}
+
+.game-info {
+    margin-left: 20px;
+    height: 10%;
+    display: flex;
+    flex-direction: row;
+    height: 70%;
+}
+
+.plays {
+
+}
+
+.players-info {
+    display: flex;
+    flex-direction: row;
+    margin-left: 20px;
+}
+
+.player-score {
+    margin-left: 20px;
+}
+
+.letters-pick {
+    margin-left: 20px;
+    height: 20%;
+}
+
+.desk {
+    background: #2eaa6d;
+    border-top: 8px solid #00901c;
+    border-bottom: 15px solid #005515;
+    border-radius: 3px;
+    width: 400px;
+    height: 59px;
+    display: inline-block;
+}
+
+.desk-inner {
+    background: #2eaa6d;
+    margin-top: 10px;
+    margin-left: 10px;
+    width: auto;
+    height: auto;
 }
