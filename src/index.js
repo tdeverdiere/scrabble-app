@@ -1,20 +1,74 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { DndProvider } from 'react-dnd'
+import { useDrag } from 'react-dnd'
+import { useDrop } from 'react-dnd'
+import Backend from 'react-dnd-html5-backend'
+
 import './index.css';
 
 let boardSize = 255;
+
+export const ItemTypes = {
+    LETTER: 'letter',
+}
+
+
+const letterSource = {
+    beginDrag(props) {
+        // Return the data describing the dragged item
+        const item = { id: props.id }
+        return item
+    },
+
+    endDrag(props, monitor, component) {
+        if (!monitor.didDrop()) {
+            return
+        }
+
+        // When dropped on a compatible target, do something
+        const item = monitor.getItem()
+        const dropResult = monitor.getDropResult()
+    },
+};
+
+function Letter(props) {
+    const [{ isDragging }, drag] = useDrag({
+        item: { type: ItemTypes.LETTER },
+        collect: monitor => ({
+            isDragging: !!monitor.isDragging(),
+        }),
+    });
+
+    return (
+        <div className="square-letter" ref={drag} style={{opacity: isDragging ? 0.5 : 1}}>
+            <div className="letter">{props.content}</div>
+            <div className="point">{props.point}</div>
+        </div>
+    );
+}
 
 function Square(props) {
     let className;
     let content;
     let point;
+
+    const [{ isOver, canDrop }, drop] = useDrop({
+        accept: ItemTypes.LETTER,
+        drop: () => moveLetter(props.position),
+        collect: mon => ({
+            isOver: !!mon.isOver(),
+            canDrop: !!mon.canDrop(),
+        }),
+    });
+
     if (props.letter) {
-        className = 'square square-letter';
+        className = 'square';
         content = props.letter[0];
         point = props.letter[1];
         return (
             <div className={className}>
-                <div className="letter">{content}</div><div className="point">{point}</div>
+                <Letter content={content} point={point}></Letter>
             </div>
         );
     } else {
@@ -49,7 +103,7 @@ class Board extends React.Component {
 
     renderSquare(i) {
         return (
-            <Square type={this.props.types[i]} letter={this.props.squares[i]} onClick={() => this.props.onClick(i)} />
+            <Square position={i} type={this.props.types[i]} letter={this.props.squares[i]} onClick={() => this.props.onClick(i)} />
         );
     }
 
@@ -241,26 +295,28 @@ class Game extends React.Component {
             )
         });
         return (
-            <div className="game">
-                <div className="game-board">
-                    <Board
-                        squares = {current.squares}
-                        types = {types}
-                        onClick={(i) => this.handleClick(i)}
-                    />
-                </div>
-                <div className="game-side">
-                    <div className="game-info">
-                        <div className="plays">
-                            <ol>{moves}</ol>
-                        </div>
-                        <div className="players-info">
-                            {players}
-                        </div>
+            <DndProvider backend={Backend}>
+                <div className="game">
+                    <div className="game-board">
+                        <Board
+                            squares = {current.squares}
+                            types = {types}
+                            onClick={(i) => this.handleClick(i)}
+                        />
                     </div>
-                    <Desk />
+                    <div className="game-side">
+                        <div className="game-info">
+                            <div className="plays">
+                                <ol>{moves}</ol>
+                            </div>
+                            <div className="players-info">
+                                {players}
+                            </div>
+                        </div>
+                        <Desk />
+                    </div>
                 </div>
-            </div>
+            </DndProvider>
         );
     }
 }
@@ -292,7 +348,7 @@ function calculateWinner(squares) {
     return null;
 }
 
-function calculatePosition(i) {
+function moveLetter(i) {
     let positions = Array(9);
     let index = 0;
     for (let row = 0; row < 3; row++) {
