@@ -53,12 +53,14 @@ function Square(props) {
     let content;
     let point;
 
-    const [{ isOver, canDrop }, drop] = useDrop({
+    const [{ isOver, canDrop, item }, drop] = useDrop({
         accept: ItemTypes.LETTER,
-        drop: () => moveLetter(props.position),
+        drop: props.onDrop,
+        canDrop: props.canMoveLetter,
         collect: mon => ({
             isOver: !!mon.isOver(),
             canDrop: !!mon.canDrop(),
+            item: mon.getItem()
         }),
     });
 
@@ -91,19 +93,22 @@ function Square(props) {
             className = 'square square-empty square-standard';
         }
         return (
-            <button className={className} onClick={props.onClick}>
-                {content}
-            </button>
+            <div ref={drop} className={className} style={{opacity: isOver? 0.5 : 1}}>
+                <div class="square-empty-content">{content}</div>
+            </div>
         );
     }
 
 }
 
 class Board extends React.Component {
+    constructor(props) {
+        super(props);
+    }
 
     renderSquare(i) {
         return (
-            <Square position={i} type={this.props.types[i]} letter={this.props.squares[i]} onClick={() => this.props.onClick(i)} />
+            <Square position={i} type={this.props.types[i]} letter={this.props.squares[i]} onDrop={() => this.props.onDrop(i)} canMoveLetter={this.props.canMoveLetter} />
         );
     }
 
@@ -215,13 +220,11 @@ class Game extends React.Component {
         };
     }
 
-    handleClick(i) {
+    handleDrop(i) {
         const history = this.state.history.slice(0, this.state.stepNumber + 1);
         const current = history[history.length - 1];
         const squares = current.squares.slice();
-        if (calculateWinner(squares) || squares[i]) {
-            return;
-        }
+
         let lettersPlay = [[i,['W','10']],[i+1,['A','1']],[i+2,['G',3]],[i+3,['O', 1]],[i+4,['N',1]]];
         lettersPlay.forEach((value) => {
             squares[value[0]] = value[1];
@@ -236,6 +239,10 @@ class Game extends React.Component {
             stepNumber: history.length,
             xIsNext: !this.state.xIsNext
         });
+    }
+
+    canMoveLetter(i, letter) {
+        return false;
     }
 
     jumpTo(step) {
@@ -301,7 +308,8 @@ class Game extends React.Component {
                         <Board
                             squares = {current.squares}
                             types = {types}
-                            onClick={(i) => this.handleClick(i)}
+                            onDrop={(i) => this.handleDrop(i)}
+                            canMoveLetter={this.canMoveLetter}
                         />
                     </div>
                     <div className="game-side">
@@ -346,17 +354,4 @@ function calculateWinner(squares) {
         }
     }
     return null;
-}
-
-function moveLetter(i) {
-    let positions = Array(9);
-    let index = 0;
-    for (let row = 0; row < 3; row++) {
-        for (let col = 0; col < 3; col++) {
-            positions[index] = {row: row + 1, col: col + 1};
-            index++;
-        }
-    }
-
-    return positions[i];
 }
