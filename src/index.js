@@ -13,37 +13,22 @@ export const ItemTypes = {
     LETTER: 'letter',
 }
 
-
-const letterSource = {
-    beginDrag(props) {
-        // Return the data describing the dragged item
-        const item = { id: props.id }
-        return item
-    },
-
-    endDrag(props, monitor, component) {
-        if (!monitor.didDrop()) {
-            return
-        }
-
-        // When dropped on a compatible target, do something
-        const item = monitor.getItem()
-        const dropResult = monitor.getDropResult()
-    },
-};
+const CURRENT_LETTERS_PLAY_INIT = { firstPosition: null, lastPosition: null, direction: null, letters: Array(0)};
 
 function Letter(props) {
     const [{ isDragging }, drag] = useDrag({
-        item: { type: ItemTypes.LETTER },
+        item: { type: ItemTypes.LETTER, content: props.content, point: props.point },
         collect: monitor => ({
             isDragging: !!monitor.isDragging(),
         }),
     });
 
     return (
-        <div className="square-letter" ref={drag} style={{opacity: isDragging ? 0.5 : 1}}>
-            <div className="letter">{props.content}</div>
-            <div className="point">{props.point}</div>
+        <div className="square">
+            <div className="square-letter" ref={drag} style={{opacity: isDragging ? 0.5 : 1}}>
+                <div className="letter">{props.content}</div>
+                <div className="point">{props.point}</div>
+            </div>
         </div>
     );
 }
@@ -51,53 +36,40 @@ function Letter(props) {
 function Square(props) {
     let className;
     let content;
-    let point;
 
-    const [{ isOver, canDrop, item }, drop] = useDrop({
+    const [{ isOver, canDrop }, drop] = useDrop({
         accept: ItemTypes.LETTER,
-        drop: props.onDrop,
-        canDrop: props.canMoveLetter,
+        drop: (item) => props.dropLetter(item),
+        canDrop: (item) => props.canMoveLetter(props.position, item),
         collect: mon => ({
             isOver: !!mon.isOver(),
-            canDrop: !!mon.canDrop(),
-            item: mon.getItem()
+            canDrop: !!mon.canDrop()
         }),
     });
 
-    if (props.letter) {
-        className = 'square';
-        content = props.letter[0];
-        point = props.letter[1];
-        return (
-            <div className={className}>
-                <Letter content={content} point={point}></Letter>
-            </div>
-        );
+    if (props.type === 'mct') {
+        className = 'square square-empty square-mct';
+        content = 'MOT TRIPLE';
+    } else if (props.type === 'mcd') {
+        className = 'square square-empty square-mcd';
+        content = 'MOT DOUBLE';
+    } else if (props.type === 'start') {
+        className = 'square square-empty square-start';
+        content = 'X';
+    } else if (props.type === 'lct') {
+        className = 'square square-empty square-lct';
+        content = 'LETTRE TRIPLE';
+    } else if (props.type === 'lcd') {
+        className = 'square square-empty square-lcd';
+        content = 'LETTRE DOUBLE';
     } else {
-        if (props.type === 'mct') {
-            className = 'square square-empty square-mct';
-            content = 'MOT TRIPLE';
-        } else if (props.type === 'mcd') {
-            className = 'square square-empty square-mcd';
-            content = 'MOT DOUBLE';
-        } else if (props.type === 'start') {
-            className = 'square square-empty square-start';
-            content = 'X';
-        } else if (props.type === 'lct') {
-            className = 'square square-empty square-lct';
-            content = 'LETTRE TRIPLE';
-        } else if (props.type === 'lcd') {
-            className = 'square square-empty square-lcd';
-            content = 'LETTRE DOUBLE';
-        } else {
-            className = 'square square-empty square-standard';
-        }
-        return (
-            <div ref={drop} className={className} style={{opacity: isOver? 0.5 : 1}}>
-                <div class="square-empty-content">{content}</div>
-            </div>
-        );
+        className = 'square square-empty square-standard';
     }
+    return (
+        <div ref={drop} className={className + (isOver ? ' square-drop':'') + (canDrop ? ' square-candrop' : ' ')} >
+            <div className="square-empty-content">{content}</div>
+        </div>
+    );
 
 }
 
@@ -107,9 +79,36 @@ class Board extends React.Component {
     }
 
     renderSquare(i) {
-        return (
-            <Square position={i} type={this.props.types[i]} letter={this.props.squares[i]} onDrop={() => this.props.onDrop(i)} canMoveLetter={this.props.canMoveLetter} />
-        );
+        let currentLetterPlayed = this.getCurrentLettersPlay(i);
+
+        if (currentLetterPlayed) {
+            return (
+                <Letter content={currentLetterPlayed.content} point={currentLetterPlayed.point}></Letter>
+            );
+        } else if (this.props.squares[i]) {
+            return (
+                <Letter content={this.props.squares[i][0]} point={this.props.squares[i][1]}></Letter>
+            );
+        } else {
+            return (
+                <Square position={i} type={this.props.types[i]} dropLetter={(item) => this.props.dropLetter(i, item)} canMoveLetter={() => this.props.canMoveLetter()}/>
+            );
+        }
+    }
+
+    getCurrentLettersPlay(i) {
+        const currentLettersPlay = this.props.currentLettersPlay;
+        if (currentLettersPlay.firstPosition !== null) {
+            if (i >= currentLettersPlay.firstPosition && i <= currentLettersPlay.lastPosition) {
+                for (let li = 0; li < currentLettersPlay.letters.length; li++) {
+                    if (currentLettersPlay.letters[li].position === i) {
+                        return currentLettersPlay.letters[li].letter;
+                    }
+                }
+            }
+        }
+
+        return undefined;
     }
 
     render() {
@@ -117,9 +116,9 @@ class Board extends React.Component {
         for (let row = 0; row < 15; row++) {
             let cols = Array(3);
             for (let col = 0; col < 15; col++) {
-                cols[col] = (<span>{this.renderSquare(col + row*15)}</span>)
+                cols[col] = (<span key={row + '-' + col}>{this.renderSquare(col + row*15)}</span>)
             }
-            boardRow[row] = <div className="board-row">{cols}</div>
+            boardRow[row] = <div key={row} className="board-row">{cols}</div>
         }
         return (
             <div>
@@ -140,9 +139,9 @@ class Desk extends React.Component {
     render() {
         let deskLetters;
 
-        deskLetters = this.state.letters.map(value => {
+        deskLetters = this.state.letters.map((value, index) => {
             return (
-                <Square type='letter' letter={value}  />
+                <Letter key={index} content={value[0]} point={value[1]}  />
             );
         });
 
@@ -159,6 +158,8 @@ class Desk extends React.Component {
 }
 
 class Game extends React.Component {
+
+
     constructor(props) {
         super(props);
         let types =  Array(boardSize).fill('square-standard');
@@ -213,6 +214,7 @@ class Game extends React.Component {
                 index: 0
             }],
             types: types,
+            currentLettersPlay: CURRENT_LETTERS_PLAY_INIT,
             xIsNext: true,
             stepNumber: 0,
             movesInChronoOrder: true,
@@ -220,12 +222,12 @@ class Game extends React.Component {
         };
     }
 
-    handleDrop(i) {
+    validate() {
         const history = this.state.history.slice(0, this.state.stepNumber + 1);
         const current = history[history.length - 1];
         const squares = current.squares.slice();
 
-        let lettersPlay = [[i,['W','10']],[i+1,['A','1']],[i+2,['G',3]],[i+3,['O', 1]],[i+4,['N',1]]];
+        let lettersPlay = this.state.currentLettersPlay;
         lettersPlay.forEach((value) => {
             squares[value[0]] = value[1];
         });
@@ -236,13 +238,49 @@ class Game extends React.Component {
                 lettersPlay: lettersPlay,
                 index: history.length
             }]),
+            currentLettersPlay: CURRENT_LETTERS_PLAY_INIT,
             stepNumber: history.length,
             xIsNext: !this.state.xIsNext
         });
     }
 
+    dropLetter(i, item) {
+
+        let currentLettersPlay = {
+            firstPosition: this.state.currentLettersPlay.firstPosition,
+            lastPosition: this.state.currentLettersPlay.lastPosition,
+            direction: this.state.currentLettersPlay.direction,
+            letters: this.state.currentLettersPlay.letters.slice()
+        }
+
+        if (this.state.currentLettersPlay.firstPosition == null) {
+            currentLettersPlay.firstPosition = i;
+            currentLettersPlay.lastPosition = i;
+            currentLettersPlay.direction = null;
+        } else {
+            if (i < this.state.currentLettersPlay.firstPosition) {
+                currentLettersPlay.firstPosition = i;
+            } else if (i > this.state.currentLettersPlay.lastPosition) {
+                currentLettersPlay.lastPosition = i;
+            }
+            if (this.state.currentLettersPlay.letters.length == 1) {
+                if (Math.abs(this.state.currentLettersPlay.firstPosition - i) >= 15) {
+                    currentLettersPlay.direction = 'V'; // Vertical
+                } else {
+                    currentLettersPlay.direction = 'H'; // Horizontal
+                }
+            }
+        }
+
+        currentLettersPlay.letters = currentLettersPlay.letters.concat({position: i, letter: {content: item.content, point: item.point}});
+
+        this.setState({
+            currentLettersPlay: currentLettersPlay
+        });
+    }
+
     canMoveLetter(i, letter) {
-        return false;
+        return true;
     }
 
     jumpTo(step) {
@@ -262,6 +300,7 @@ class Game extends React.Component {
         const history = this.state.history.slice();
         const current = history[this.state.stepNumber];
         const types = this.state.types;
+        const currentLettersPlay = this.state.currentLettersPlay;
         const winner = calculateWinner(current.squares);
         let status;
         if (winner) {
@@ -296,7 +335,7 @@ class Game extends React.Component {
 
         const players = this.state.players.map((player, index) => {
             return (
-                <div className="player-score">
+                <div className="player-score" key={index}>
                     {player}
                 </div>
             )
@@ -306,10 +345,11 @@ class Game extends React.Component {
                 <div className="game">
                     <div className="game-board">
                         <Board
+                            currentLettersPlay = {currentLettersPlay}
                             squares = {current.squares}
                             types = {types}
-                            onDrop={(i) => this.handleDrop(i)}
-                            canMoveLetter={this.canMoveLetter}
+                            dropLetter={(i, item) => this.dropLetter(i, item)}
+                            canMoveLetter={() => this.canMoveLetter()}
                         />
                     </div>
                     <div className="game-side">
@@ -335,6 +375,10 @@ ReactDOM.render(
     <Game />,
     document.getElementById('root')
 );
+
+function getDrop(i, item) {
+    console.log("Dropping : " + i + " - item :" + item[1]);
+}
 
 function calculateWinner(squares) {
     const lines = [

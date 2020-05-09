@@ -59,7 +59,7 @@ ol, ul {
 }
 
 .square-letter {
-    border: 1px solid #BBB;
+    border: 2px solid #BBB;
     border-radius: 4px;
     background: #FFF573;
     border-radius: 3px;
@@ -84,6 +84,18 @@ ol, ul {
     font-weight: bold;
     line-height: 16px;
     position: relative;
+}
+
+.square-drop {
+    opacity: 0.5;
+}
+
+.square-candrop {
+    background-color: #000000;
+}
+
+.square-cannotdrop {
+    background-color: #999;
 }
 
 .square {
