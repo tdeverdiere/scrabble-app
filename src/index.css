@@ -91,7 +91,10 @@ ol, ul {
 }
 
 .square-candrop {
-    background-color: #000000;
+    border: 3px dashed #ffcc33;
+    background-color: #008918;
+    height: 45px;
+    width: 45px;
 }
 
 .square-cannotdrop {

@@ -9,6 +9,8 @@ import './index.css';
 
 let boardSize = 255;
 
+let POSITION_START = 112;
+
 export const ItemTypes = {
     LETTER: 'letter',
 }
@@ -40,7 +42,7 @@ function Square(props) {
     const [{ isOver, canDrop }, drop] = useDrop({
         accept: ItemTypes.LETTER,
         drop: (item) => props.dropLetter(item),
-        canDrop: (item) => props.canMoveLetter(props.position, item),
+        canDrop: (item) => props.canDropLetter(item),
         collect: mon => ({
             isOver: !!mon.isOver(),
             canDrop: !!mon.canDrop()
@@ -91,7 +93,7 @@ class Board extends React.Component {
             );
         } else {
             return (
-                <Square position={i} type={this.props.types[i]} dropLetter={(item) => this.props.dropLetter(i, item)} canMoveLetter={() => this.props.canMoveLetter()}/>
+                <Square position={i} type={this.props.types[i]} dropLetter={(item) => this.props.dropLetter(i, item)} canDropLetter={(item) => this.props.canDropLetter(i, item)}/>
             );
         }
     }
@@ -199,13 +201,16 @@ class Game extends React.Component {
 
 
         // Start
-        types[112] = 'start';
+        types[POSITION_START] = 'start';
 
         let players = Array(4);
         players[0] = 'Thomas';
         players[1] = 'Catherine';
         players[2] = 'Magali';
         players[3] = 'Cécile';
+
+        let nextPossiblePositions = new Set();
+        nextPossiblePositions.add(POSITION_START);
 
         this.state = {
             history: [{
@@ -215,6 +220,7 @@ class Game extends React.Component {
             }],
             types: types,
             currentLettersPlay: CURRENT_LETTERS_PLAY_INIT,
+            nextPossiblePositions: nextPossiblePositions,
             xIsNext: true,
             stepNumber: 0,
             movesInChronoOrder: true,
@@ -277,10 +283,137 @@ class Game extends React.Component {
         this.setState({
             currentLettersPlay: currentLettersPlay
         });
+
+        let nextPossiblePositions = this.calculateNextPossiblePositions(currentLettersPlay);
+        this.setState({
+            nextPossiblePositions: nextPossiblePositions
+        });
+
     }
 
-    canMoveLetter(i, letter) {
-        return true;
+    calculateNextPossiblePositions() {
+        const current = this.state.history[this.state.history.length - 1];
+        const squares = current.squares;
+        const currentLettersPlay = this.state.currentLettersPlay;
+        let possiblePositions = new Set();
+
+        // Si c'est le premier coup
+        if (this.state.history.length === 1 && !current.lettersPlay) {
+            if (currentLettersPlay.firstPosition == null) {
+                possiblePositions.add(POSITION_START);
+                return possiblePositions;
+            }
+        }
+
+        // Si aucune lettre n'a encore été posée
+        if (currentLettersPlay.firstPosition == null) {
+            for (let index; index < squares.length; index++) {
+                if (squares[index]) {
+                    possiblePositions.add(this.findPreviousHorizontalFree(index));
+                    possiblePositions.add(this.findNextHorizontalFree(index));
+                    possiblePositions.add(this.findPreviousVerticalFree(index));
+                    possiblePositions.add(this.findNextVerticalFree(index));
+                }
+            }
+            return possiblePositions;
+        }
+
+        // Si seulement 1 lettre a été posée, la direction n'est pas précisé
+        if (currentLettersPlay.direction == null) {
+            let currentPosition = currentLettersPlay.firstPosition;
+            possiblePositions.add(this.findPreviousHorizontalFree(currentPosition));
+            possiblePositions.add(this.findNextHorizontalFree(currentPosition));
+            possiblePositions.add(this.findPreviousVerticalFree(currentPosition));
+            possiblePositions.add(this.findNextVerticalFree(currentPosition));
+        } else {
+            if (currentLettersPlay.direction === 'V') {
+                possiblePositions.add(this.findPreviousVerticalFree(currentLettersPlay.firstPosition));
+                possiblePositions.add(this.findNextVerticalFree(currentLettersPlay.lastPosition));
+            } else {
+                possiblePositions.add(this.findPreviousHorizontalFree(currentLettersPlay.firstPosition));
+                possiblePositions.add(this.findNextHorizontalFree(currentLettersPlay.lastPosition));
+            }
+        }
+
+        return possiblePositions;
+    }
+
+    canDropLetter(i, item) {
+        const nextPossiblePositions = this.state.nextPossiblePositions;
+
+        return nextPossiblePositions.has(i);
+    }
+
+    findPreviousHorizontalFree(i) {
+        let restOfLineStart = i % 15;
+        let endOfPreviousLine = i - restOfLineStart - 1;
+        return this.findFreeSquareInLimit(i, restOfLineStart, endOfPreviousLine, 224, -1);
+    }
+
+    findNextHorizontalFree(i) {
+        let restOfLineEnd = 14 - i % 15;
+        let beginOfNextLine = i + restOfLineEnd + 1;
+        return this.findFreeSquareInLimit(i, restOfLineEnd, 0, beginOfNextLine, 1);
+    }
+
+    findPreviousVerticalFree(i) {
+        let restOfLineStart = i < 14 ? 0 : 1;
+        let limitDown = 0;
+        return this.findFreeSquareInLimit(i, restOfLineStart, limitDown, 224, -15);
+    }
+
+    findNextVerticalFree(i) {
+        let restOfLineEnd = i > 209 ? 0 : 1;
+        let limitUp = 224;
+        return this.findFreeSquareInLimit(i, restOfLineEnd, 0, limitUp, 15);
+    }
+
+    findFreeSquareInLimit(i, rest, limitDown, limitUp, increment) {
+        let position = -1;
+        if (rest !== 0) {
+            const current = this.state.history[this.state.history.length - 1];
+            const squares = current.squares;
+            const currentLettersPlay = this.state.currentLettersPlay;
+            position = i + increment;
+            while (position > limitDown && position < limitUp && squares[position] && this.isInCurrentLettersPlay(position)) {
+                position = position + increment;
+            }
+            if (position > limitDown && position < limitUp) {
+                return position;
+            } else {
+                position = -1;
+            }
+        }
+        return position;
+    }
+
+    isInCurrentLettersPlay(i) {
+        const currentLettersPlay = this.state.currentLettersPlay;
+        if (currentLettersPlay.firstPosition !== null) {
+            if (i >= currentLettersPlay.firstPosition && i <= currentLettersPlay.lastPosition) {
+                for (let li = 0; li < currentLettersPlay.letters.length; li++) {
+                    if (currentLettersPlay.letters[li].position === i) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    isNextToALetter(i, squares) {
+        if ((i < 224 && squares[i + 1]) || ( i > 0 && squares[i - 1])) {
+            return true;
+        }
+        if ((i < 110 && squares[i + 15]) || ( i > 14 && squares[i - 15])) {
+            return true;
+        }
+        return false;
+    }
+
+    isStartPosition(i) {
+        return i === 112;
     }
 
     jumpTo(step) {
@@ -349,7 +482,7 @@ class Game extends React.Component {
                             squares = {current.squares}
                             types = {types}
                             dropLetter={(i, item) => this.dropLetter(i, item)}
-                            canMoveLetter={() => this.canMoveLetter()}
+                            canDropLetter={(i, item) => this.canDropLetter(i, item)}
                         />
                     </div>
                     <div className="game-side">
@@ -375,10 +508,6 @@ ReactDOM.render(
     <Game />,
     document.getElementById('root')
 );
-
-function getDrop(i, item) {
-    console.log("Dropping : " + i + " - item :" + item[1]);
-}
 
 function calculateWinner(squares) {
     const lines = [
