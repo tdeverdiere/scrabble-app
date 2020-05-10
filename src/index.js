@@ -1,15 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { DndProvider } from 'react-dnd'
 import { useDrag } from 'react-dnd'
 import { useDrop } from 'react-dnd'
 import Backend from 'react-dnd-html5-backend'
+import update from 'immutability-helper'
 
 import './index.css';
 
 let boardSize = 255;
 
 let POSITION_START = 112;
+let INITIAL_DESK_LETTERS =  [
+    {id: 1, letter: {content: 'W', point: '10'}},
+    {id: 2, letter: {content: 'A', point: '1'}},
+    {id: 3, letter: {content: 'G', point: '3'}},
+    {id: 4, letter: {content: 'O', point: '1'}},
+    {id: 5, letter: {content: 'N', point: '1'}},
+    {id: 6, letter: {content: 'A', point: '1'}},
+    {id: 7, letter: {content: 'U', point: '1'}}
+];
 
 export const ItemTypes = {
     LETTER: 'letter',
@@ -19,15 +29,35 @@ const CURRENT_LETTERS_PLAY_INIT = { firstPosition: null, lastPosition: null, dir
 
 function Letter(props) {
     const [{ isDragging }, drag] = useDrag({
-        item: { type: ItemTypes.LETTER, content: props.content, point: props.point },
+        item: { type: ItemTypes.LETTER, id: props.id, content: props.content, point: props.point },
+        canDrag: props.moveable,
         collect: monitor => ({
             isDragging: !!monitor.isDragging(),
         }),
+        end: (dropResult, monitor) => {
+            const { id: droppedId, originalIndex } = monitor.getItem()
+            const didDrop = monitor.didDrop()
+            if (!didDrop) {
+                props.moveLetter(droppedId, originalIndex)
+            }
+        },
     });
 
+    const [, drop] = useDrop({
+        accept: ItemTypes.LETTER,
+        canDrop: () => false,
+        hover({ id: draggedId }) {
+            if (props.id && draggedId !== props.id) {
+                const { index: overIndex } = props.findLetter(props.id)
+                props.moveLetter(draggedId, overIndex)
+            }
+        },
+    })
+
+
     return (
-        <div className="square">
-            <div className="square-letter" ref={drag} style={{opacity: isDragging ? 0.5 : 1}}>
+        <div ref={(node) => drag(drop(node))} className="square">
+            <div className="square-letter" style={{opacity: isDragging ? 0.5 : 1}}>
                 <div className="letter">{props.content}</div>
                 <div className="point">{props.point}</div>
             </div>
@@ -85,11 +115,11 @@ class Board extends React.Component {
 
         if (currentLetterPlayed) {
             return (
-                <Letter content={currentLetterPlayed.content} point={currentLetterPlayed.point}></Letter>
+                <Letter content={currentLetterPlayed.content} point={currentLetterPlayed.point} moveable={false}></Letter>
             );
         } else if (this.props.squares[i]) {
             return (
-                <Letter content={this.props.squares[i][0]} point={this.props.squares[i][1]}></Letter>
+                <Letter content={this.props.squares[i][0]} point={this.props.squares[i][1]} moveable={false}></Letter>
             );
         } else {
             return (
@@ -130,33 +160,51 @@ class Board extends React.Component {
     }
 }
 
-class Desk extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            letters: [['W','10'],['A','1'],['G',3],['O', 1],['N',1],['A',1],['U',1]]
+function Desk() {
+    const [letters, setLetters] = useState(INITIAL_DESK_LETTERS);
+
+    const canMoveLetter = (item) => {
+        return true;
+    }
+
+    const moveLetter = (id, atIndex) => {
+        const { letter, index } = findLetter(id)
+        setLetters(
+            update(letters, {
+                $splice: [
+                    [index, 1],
+                    [atIndex, 0, letter],
+                ],
+            }),
+        )
+    }
+
+    const findLetter = (id) => {
+        const letter = letters.filter((l) => l.id === id)[0]
+        return {
+            letter,
+            index: letters.indexOf(letter),
         }
     }
 
-    render() {
-        let deskLetters;
+    const [, drop] = useDrop({ accept: ItemTypes.LETTER })
 
-        deskLetters = this.state.letters.map((value, index) => {
-            return (
-                <Letter key={index} content={value[0]} point={value[1]}  />
-            );
-        });
-
+    let deskLetters = letters.map((value, index) => {
         return (
-            <div className="letters-pick">
-                <div className="desk">
-                    <div className="desk-inner">
-                        {deskLetters}
-                    </div>
+            <Letter key={value.id} id={value.id} content={value.letter.content} point={value.letter.point}
+                    moveable={true} moveLetter={moveLetter} findLetter={findLetter}/>
+        );
+    });
+
+    return (
+        <div ref={drop} className="letters-pick">
+            <div className="desk">
+                <div className="desk-inner">
+                    {deskLetters}
                 </div>
             </div>
-        )
-    }
+        </div>
+    )
 }
 
 class Game extends React.Component {
