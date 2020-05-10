@@ -163,10 +163,6 @@ class Board extends React.Component {
 function Desk() {
     const [letters, setLetters] = useState(INITIAL_DESK_LETTERS);
 
-    const canMoveLetter = (item) => {
-        return true;
-    }
-
     const moveLetter = (id, atIndex) => {
         const { letter, index } = findLetter(id)
         setLetters(
