@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom';
 import { DndProvider } from 'react-dnd'
 import { useDrag } from 'react-dnd'
 import { useDrop } from 'react-dnd'
 import Backend from 'react-dnd-html5-backend'
-import update from 'immutability-helper'
 
 import './index.css';
 
@@ -37,7 +36,7 @@ function Letter(props) {
         end: (dropResult, monitor) => {
             const { id: droppedId, originalIndex } = monitor.getItem()
             const didDrop = monitor.didDrop()
-            if (!didDrop) {
+            if (!didDrop && droppedId) {
                 props.moveLetter(droppedId, originalIndex)
             }
         },
@@ -157,35 +156,13 @@ class Board extends React.Component {
     }
 }
 
-function Desk({lettersPlayed, validate, cancel}) {
-    const [letters, setLetters] = useState(INITIAL_DESK_LETTERS);
-
-    const moveLetter = (id, atIndex) => {
-        const { letter, index } = findLetter(id)
-        setLetters(
-            update(letters, {
-                $splice: [
-                    [index, 1],
-                    [atIndex, 0, letter],
-                ],
-            }),
-        )
-    }
-
-    const findLetter = (id) => {
-        const letter = letters.filter((l) => l.id === id)[0]
-        return {
-            letter,
-            index: letters.indexOf(letter),
-        }
-    }
-
+function Desk({deskLetters, lettersPlayed, validate, cancel, moveDeskLetter, findDeskLetter}) {
     const [, drop] = useDrop({ accept: ItemTypes.LETTER })
 
-    let deskLetters = letters.map((value, index) => {
+    let letters = deskLetters.map((value, index) => {
         return (
             <Letter key={value.id} id={value.id} content={value.letter.content} point={value.letter.point}
-                    moveable={true} moveLetter={moveLetter} findLetter={findLetter} isNewLetter={false}/>
+                    moveable={true} moveLetter={(id, atIndex) => moveDeskLetter(id, atIndex, deskLetters)} findLetter={(id) => findDeskLetter(id, deskLetters)} isNewLetter={false}/>
         );
     });
 
@@ -203,7 +180,7 @@ function Desk({lettersPlayed, validate, cancel}) {
         <div ref={drop} className="letters-pick">
             <div className="desk">
                 <div className="desk-inner">
-                    {deskLetters}
+                    {letters}
                 </div>
             </div>
             {buttonValidate}
@@ -279,7 +256,8 @@ class Game extends React.Component {
             stepNumber: 0,
             movesInChronoOrder: true,
             players: players,
-            currentPlayerId: '0'
+            currentPlayerId: '0',
+            deskLetters: INITIAL_DESK_LETTERS
         };
     }
 
@@ -294,6 +272,7 @@ class Game extends React.Component {
         lettersPlay.letters.forEach((value) => {
             squares[value.position] = {content: value.letter.content, point: value.letter.point};
         });
+
 
         this.setState({
             history: history.concat([{
@@ -393,13 +372,18 @@ class Game extends React.Component {
         const current = this.state.history[this.state.stepNumber];
         const squares = current.squares;
 
+        let deskLetters = this.state.deskLetters.concat(this.state.currentLettersPlay.letters);
         this.setState({
-            currentLettersPlay: CURRENT_LETTERS_PLAY_INIT
+            currentLettersPlay: CURRENT_LETTERS_PLAY_INIT,
+            deskLetters: deskLetters
         });
         this.updateNextPossiblePositions(this.state.stepNumber, CURRENT_LETTERS_PLAY_INIT, squares);
     }
 
     dropLetter(i, item) {
+        if (!this.state.nextPossiblePositions.has(i)) {
+            return;
+        }
         const current = this.state.history[this.state.stepNumber];
         const squares = current.squares;
 
@@ -436,6 +420,14 @@ class Game extends React.Component {
         });
 
         this.updateNextPossiblePositions(this.state.stepNumber, this.state.currentLettersPlay, squares);
+
+        const deskLetters = this.state.deskLetters.slice();
+        const { letter, index } = this.findDeskLetter(item.id, deskLetters);
+        deskLetters.splice(index, 1);
+        this.setState({
+            deskLetters: deskLetters
+        });
+
     }
 
     updateNextPossiblePositions(turnIndex, currentLettersPlay, squares) {
@@ -591,12 +583,32 @@ class Game extends React.Component {
         })
     }
 
+    moveDeskLetter(id, atIndex, deskLetters) {
+        const { letter, index } = this.findDeskLetter(id, deskLetters);
+        let replacedLetter = deskLetters.splice(atIndex, 1, letter);
+        deskLetters.splice(index, 1, replacedLetter[0]);
+
+        this.setState({
+            deskLetters: deskLetters
+        });
+    }
+
+    findDeskLetter(id, deskLetters) {
+        const letter = deskLetters.filter((l) => l.id === id)[0];
+
+        return {
+            letter,
+            index: deskLetters.indexOf(letter),
+        }
+    }
+
     render() {
         const allhistory = this.state.history.slice(0, this.state.history.length);
         const history = this.state.history.slice(0, this.state.stepNumber + 1);
         const current = history[this.state.stepNumber];
         const types = this.state.types;
         const currentLettersPlay = this.state.currentLettersPlay;
+        const deskLetters = this.state.deskLetters.slice();
 
         if (!this.state.movesInChronoOrder) {
             history.reverse();
@@ -665,7 +677,7 @@ class Game extends React.Component {
                                 {players}
                             </div>
                         </div>
-                        <Desk lettersPlayed={this.state.currentLettersPlay} validate={() => this.validate()} cancel={() => this.cancel()}/>
+                        <Desk deskLetters={deskLetters} moveDeskLetter={(id, atIndex, deskLetters) => this.moveDeskLetter(id, atIndex, deskLetters)} findDeskLetter={(id, deskLetters) => this.findDeskLetter(id, deskLetters)} lettersPlayed={this.state.currentLettersPlay} validate={() => this.validate()} cancel={() => this.cancel()}/>
                     </div>
                 </div>
             </DndProvider>
