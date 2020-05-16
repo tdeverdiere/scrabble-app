@@ -311,7 +311,7 @@ class Game extends React.Component {
         this.updateNextPossiblePositions(history.length, CURRENT_LETTERS_PLAY_INIT, squares);
     }
 
-    getPlayedWordsPosition(lettersPlay) {
+    getPlayedWordsPosition(lettersPlay, squares) {
         let wordsPosition = [];
         if (lettersPlay.direction) {
             let otherDirection;
@@ -320,13 +320,13 @@ class Game extends React.Component {
             } else {
                 otherDirection = 'H';
             }
-            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, lettersPlay.direction, lettersPlay));
+            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, lettersPlay.direction, lettersPlay, squares));
             lettersPlay.letters.forEach((value) => {
-                wordsPosition = wordsPosition.concat(this.findWordPositions(value.position, otherDirection, lettersPlay));
+                wordsPosition = wordsPosition.concat(this.findWordPositions(value.position, otherDirection, lettersPlay, squares));
             });
         } else {
-            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, 'H', lettersPlay));
-            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, 'V', lettersPlay));
+            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, 'H', lettersPlay, squares));
+            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, 'V', lettersPlay, squares));
         }
 
         wordsPosition = wordsPosition.filter(wordPosition => !!wordPosition);
@@ -334,7 +334,7 @@ class Game extends React.Component {
     }
 
     calculateScore(lettersPlay, squares) {
-        let wordsPosition = this.getPlayedWordsPosition(lettersPlay);
+        let wordsPosition = this.getPlayedWordsPosition(lettersPlay, squares);
 
         let score = wordsPosition.reduce((scoreSum, wordPosition) => {
             if (!wordPosition) {
@@ -367,18 +367,18 @@ class Game extends React.Component {
         return score;
     }
 
-    findWordPositions(i, direction, lettersPlay) {
+    findWordPositions(i, direction, lettersPlay, squares) {
         let wordPosition;
         if (direction === 'H') {
             wordPosition = {
-                begin: this.findPreviousHorizontalFree(i, lettersPlay).filled,
-                end: this.findNextHorizontalFree(i, lettersPlay).filled,
+                begin: this.findPreviousHorizontalFree(i, lettersPlay, squares).filled,
+                end: this.findNextHorizontalFree(i, lettersPlay, squares).filled,
                 increment: 1
             }
         } else {
             wordPosition = {
-                begin: this.findPreviousVerticalFree(i, lettersPlay).filled,
-                end: this.findNextVerticalFree(i, lettersPlay).filled,
+                begin: this.findPreviousVerticalFree(i, lettersPlay, squares).filled,
+                end: this.findNextVerticalFree(i, lettersPlay, squares).filled,
                 increment: 15
             }
         }
@@ -460,10 +460,10 @@ class Game extends React.Component {
         if (currentLettersPlay.firstPosition == null) {
             for (let index = 0; index < squares.length; index++) {
                 if (squares[index]) {
-                    possiblePositions.add(this.findPreviousHorizontalFree(index, currentLettersPlay).free);
-                    possiblePositions.add(this.findNextHorizontalFree(index, currentLettersPlay).free);
-                    possiblePositions.add(this.findPreviousVerticalFree(index, currentLettersPlay).free);
-                    possiblePositions.add(this.findNextVerticalFree(index, currentLettersPlay).free);
+                    possiblePositions.add(this.findPreviousHorizontalFree(index, currentLettersPlay, squares).free);
+                    possiblePositions.add(this.findNextHorizontalFree(index, currentLettersPlay, squares).free);
+                    possiblePositions.add(this.findPreviousVerticalFree(index, currentLettersPlay, squares).free);
+                    possiblePositions.add(this.findNextVerticalFree(index, currentLettersPlay, squares).free);
                 }
             }
             return possiblePositions;
@@ -472,17 +472,17 @@ class Game extends React.Component {
         // Si seulement 1 lettre a été posée, la direction n'est pas précisé
         if (currentLettersPlay.direction == null) {
             let currentPosition = currentLettersPlay.firstPosition;
-            possiblePositions.add(this.findPreviousHorizontalFree(currentPosition, currentLettersPlay).free);
-            possiblePositions.add(this.findNextHorizontalFree(currentPosition, currentLettersPlay).free);
-            possiblePositions.add(this.findPreviousVerticalFree(currentPosition, currentLettersPlay).free);
-            possiblePositions.add(this.findNextVerticalFree(currentPosition, currentLettersPlay).free);
+            possiblePositions.add(this.findPreviousHorizontalFree(currentPosition, currentLettersPlay, squares).free);
+            possiblePositions.add(this.findNextHorizontalFree(currentPosition, currentLettersPlay, squares).free);
+            possiblePositions.add(this.findPreviousVerticalFree(currentPosition, currentLettersPlay, squares).free);
+            possiblePositions.add(this.findNextVerticalFree(currentPosition, currentLettersPlay, squares).free);
         } else {
             if (currentLettersPlay.direction === 'V') {
-                possiblePositions.add(this.findPreviousVerticalFree(currentLettersPlay.firstPosition, currentLettersPlay).free);
-                possiblePositions.add(this.findNextVerticalFree(currentLettersPlay.lastPosition, currentLettersPlay).free);
+                possiblePositions.add(this.findPreviousVerticalFree(currentLettersPlay.firstPosition, currentLettersPlay, squares).free);
+                possiblePositions.add(this.findNextVerticalFree(currentLettersPlay.lastPosition, currentLettersPlay, squares).free);
             } else {
-                possiblePositions.add(this.findPreviousHorizontalFree(currentLettersPlay.firstPosition, currentLettersPlay).free);
-                possiblePositions.add(this.findNextHorizontalFree(currentLettersPlay.lastPosition, currentLettersPlay).free);
+                possiblePositions.add(this.findPreviousHorizontalFree(currentLettersPlay.firstPosition, currentLettersPlay, squares).free);
+                possiblePositions.add(this.findNextHorizontalFree(currentLettersPlay.lastPosition, currentLettersPlay, squares).free);
             }
         }
 
@@ -505,39 +505,37 @@ class Game extends React.Component {
         return {begin: endOfPreviousLine, end: beginOfNextLine};
     }
 
-    findPreviousHorizontalFree(i, currentLettersPlay) {
+    findPreviousHorizontalFree(i, currentLettersPlay, squares) {
         let bounds = this.getLineBounds(i);
         if (i === bounds.begin + 1) {
             return {free: -1, filled: -1};
         }
-        return this.findFreeSquareInLimit(i, bounds.begin, bounds.end, -1, currentLettersPlay);
+        return this.findFreeSquareInLimit(i, bounds.begin, bounds.end, -1, currentLettersPlay, squares);
     }
 
-    findNextHorizontalFree(i, currentLettersPlay) {
+    findNextHorizontalFree(i, currentLettersPlay, squares) {
         let bounds = this.getLineBounds(i);
         if (i === bounds.end - 1) {
             return {free: -1, filled: -1};
         }
-        return this.findFreeSquareInLimit(i, bounds.begin, bounds.end, 1, currentLettersPlay);
+        return this.findFreeSquareInLimit(i, bounds.begin, bounds.end, 1, currentLettersPlay, squares);
     }
 
-    findPreviousVerticalFree(i, currentLettersPlay) {
+    findPreviousVerticalFree(i, currentLettersPlay, squares) {
         if (i < 14) {
             return {free: -1, filled: -1};
         }
-        return this.findFreeSquareInLimit(i, 0, 224, -15, currentLettersPlay);
+        return this.findFreeSquareInLimit(i, 0, 224, -15, currentLettersPlay, squares);
     }
 
-    findNextVerticalFree(i, currentLettersPlay) {
+    findNextVerticalFree(i, currentLettersPlay, squares) {
         if (i > 209) {
             return {free: -1, filled: -1};
         }
-        return this.findFreeSquareInLimit(i, 0, 224, 15, currentLettersPlay);
+        return this.findFreeSquareInLimit(i, 0, 224, 15, currentLettersPlay, squares);
     }
 
-    findFreeSquareInLimit(i, limitDown, limitUp, increment, currentLettersPlay) {
-        const current = this.state.history[this.state.history.length - 1];
-        const squares = current.squares;
+    findFreeSquareInLimit(i, limitDown, limitUp, increment, currentLettersPlay, squares) {
         let oldPosition = i;
         let position = i + increment;
         while (position > limitDown && position < limitUp && (squares[position] || this.getCurrentLettersPlay(position, currentLettersPlay))) {
@@ -584,6 +582,7 @@ class Game extends React.Component {
             stepNumber: step,
             xIsNext: (step % 2) === 0
         });
+        this.updateNextPossiblePositions(step, CURRENT_LETTERS_PLAY_INIT, this.state.history[step].squares)
     }
 
     reverseMovesOrder() {
@@ -593,7 +592,8 @@ class Game extends React.Component {
     }
 
     render() {
-        const history = this.state.history.slice();
+        const allhistory = this.state.history.slice(0, this.state.history.length);
+        const history = this.state.history.slice(0, this.state.stepNumber + 1);
         const current = history[this.state.stepNumber];
         const types = this.state.types;
         const currentLettersPlay = this.state.currentLettersPlay;
@@ -602,7 +602,7 @@ class Game extends React.Component {
             history.reverse();
         }
 
-        const moves = history.map((step, move) => {
+        const moves = allhistory.map((step, move) => {
             let button;
             let word;
 
@@ -625,7 +625,7 @@ class Game extends React.Component {
         const players = this.state.players.map((player) => {
             let total = 0;
             let scores = [];
-            this.state.history.forEach((turn) => { if (turn.playerId === player.id) {
+            history.forEach((turn) => { if (turn.playerId === player.id) {
                 total = total + turn.score;
                 scores = scores.concat(turn.score);
             }});
