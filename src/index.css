@@ -59,13 +59,17 @@ ol, ul {
     font-size: 10px;
 }
 
+.square-letter-new {
+    background: #ffcf67 !important;
+}
+
 .square-letter {
     border: 2px solid #BBB;
     border-radius: 4px;
     background: #FFF573;
     border-radius: 3px;
-    height: 47px;
-    width: 47px;
+    height: 46px;
+    width: 46px;
     line-height: 20px;
 }
 
@@ -78,8 +82,8 @@ ol, ul {
 
 .square-empty {
     border: 2px solid #999;
-    height: 47px;
-    width: 47px;
+    height: 46px;
+    width: 46px;
     font-family: "Arial Narrow";
     font-size: 11px;
     font-weight: bold;
@@ -88,14 +92,14 @@ ol, ul {
 }
 
 .square-drop {
-    opacity: 0.5;
+    opacity: 0.4;
 }
 
 .square-candrop {
     border: 3px dashed #ffcc33;
-    background-color: #008918;
-    height: 45px;
-    width: 45px;
+    opacity: 0.8;
+    height: 44px;
+    width: 44px;
 }
 
 .square-cannotdrop {

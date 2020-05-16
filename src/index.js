@@ -57,7 +57,7 @@ function Letter(props) {
 
     return (
         <div ref={(node) => drag(drop(node))} className="square">
-            <div className="square-letter" style={{opacity: isDragging ? 0.5 : 1}}>
+            <div className={(props.isNewLetter ? "square-letter-new " : "") + "square-letter"} style={{opacity: isDragging ? 0.5 : 1}}>
                 <div className="letter">{props.content}</div>
                 <div className="point">{props.point}</div>
             </div>
@@ -98,7 +98,7 @@ function Square(props) {
         className = 'square square-empty square-standard';
     }
     return (
-        <div ref={drop} className={className + (isOver ? ' square-drop':'') + (canDrop ? ' square-candrop' : ' ')} >
+        <div ref={drop} className={className + (isOver ? ' square-drop':'') + (canDrop && !isOver ? ' square-candrop' : ' ')} >
             <div className="square-empty-content">{content}</div>
         </div>
     );
@@ -112,11 +112,11 @@ class Board extends React.Component {
 
         if (currentLetterPlayed) {
             return (
-                <Letter content={currentLetterPlayed.content} point={currentLetterPlayed.point} moveable={false}></Letter>
+                <Letter content={currentLetterPlayed.content} point={currentLetterPlayed.point} moveable={false} isNewLetter={true}></Letter>
             );
         } else if (this.props.squares[i]) {
             return (
-                <Letter content={this.props.squares[i].content} point={this.props.squares[i].point} moveable={false}></Letter>
+                <Letter content={this.props.squares[i].content} point={this.props.squares[i].point} moveable={false} isNewLetter={false}></Letter>
             );
         } else {
             return (
@@ -185,7 +185,7 @@ function Desk({lettersPlayed, validate, cancel}) {
     let deskLetters = letters.map((value, index) => {
         return (
             <Letter key={value.id} id={value.id} content={value.letter.content} point={value.letter.point}
-                    moveable={true} moveLetter={moveLetter} findLetter={findLetter}/>
+                    moveable={true} moveLetter={moveLetter} findLetter={findLetter} isNewLetter={false}/>
         );
     });
 
