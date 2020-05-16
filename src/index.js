@@ -12,13 +12,13 @@ let boardSize = 255;
 
 let POSITION_START = 112;
 let INITIAL_DESK_LETTERS =  [
-    {id: 1, letter: {content: 'W', point: '10'}},
-    {id: 2, letter: {content: 'A', point: '1'}},
-    {id: 3, letter: {content: 'G', point: '3'}},
-    {id: 4, letter: {content: 'O', point: '1'}},
-    {id: 5, letter: {content: 'N', point: '1'}},
-    {id: 6, letter: {content: 'A', point: '1'}},
-    {id: 7, letter: {content: 'U', point: '1'}}
+    {id: 1, letter: {content: 'W', point: 10}},
+    {id: 2, letter: {content: 'A', point: 1}},
+    {id: 3, letter: {content: 'G', point: 3}},
+    {id: 4, letter: {content: 'O', point: 1}},
+    {id: 5, letter: {content: 'N', point: 1}},
+    {id: 6, letter: {content: 'A', point: 1}},
+    {id: 7, letter: {content: 'U', point: 1}}
 ];
 
 export const ItemTypes = {
@@ -106,9 +106,6 @@ function Square(props) {
 }
 
 class Board extends React.Component {
-    constructor(props) {
-        super(props);
-    }
 
     renderSquare(i) {
         let currentLetterPlayed = this.getCurrentLettersPlay(i);
@@ -119,7 +116,7 @@ class Board extends React.Component {
             );
         } else if (this.props.squares[i]) {
             return (
-                <Letter content={this.props.squares[i][0]} point={this.props.squares[i][1]} moveable={false}></Letter>
+                <Letter content={this.props.squares[i].content} point={this.props.squares[i].point} moveable={false}></Letter>
             );
         } else {
             return (
@@ -160,7 +157,7 @@ class Board extends React.Component {
     }
 }
 
-function Desk() {
+function Desk({lettersPlayed, validate, cancel}) {
     const [letters, setLetters] = useState(INITIAL_DESK_LETTERS);
 
     const moveLetter = (id, atIndex) => {
@@ -192,6 +189,16 @@ function Desk() {
         );
     });
 
+    let buttonValidate;
+    let buttonReset;
+    if (lettersPlayed.firstPosition) {
+        let word = '';
+        lettersPlayed.letters.forEach((value) => {
+            word = word + value.letter.content
+        });
+        buttonValidate = (<div ><button onClick={() => validate()}>Validate {word}</button></div>);
+        buttonReset = (<div ><button onClick={() => cancel()}>Reset</button></div>);
+    }
     return (
         <div ref={drop} className="letters-pick">
             <div className="desk">
@@ -199,6 +206,8 @@ function Desk() {
                     {deskLetters}
                 </div>
             </div>
+            {buttonValidate}
+            {buttonReset}
         </div>
     )
 }
@@ -248,10 +257,10 @@ class Game extends React.Component {
         types[POSITION_START] = 'start';
 
         let players = Array(4);
-        players[0] = 'Thomas';
-        players[1] = 'Catherine';
-        players[2] = 'Magali';
-        players[3] = 'Cécile';
+        players[0] = {id: '0', name: 'Thomas'};
+        players[1] = {id: '1', name: 'Catherine'};
+        players[2] = {id: '2', name: 'Magali'};
+        players[3] = {id: '3', name: 'Cécile'};
 
         let nextPossiblePositions = new Set();
         nextPossiblePositions.add(POSITION_START);
@@ -260,7 +269,8 @@ class Game extends React.Component {
             history: [{
                 squares: Array(boardSize).fill(null),
                 lettersPlay: null,
-                index: 0
+                index: 0,
+                scores: Array(players.length)
             }],
             types: types,
             currentLettersPlay: CURRENT_LETTERS_PLAY_INIT,
@@ -268,7 +278,8 @@ class Game extends React.Component {
             xIsNext: true,
             stepNumber: 0,
             movesInChronoOrder: true,
-            players: players
+            players: players,
+            currentPlayerId: '0'
         };
     }
 
@@ -278,23 +289,119 @@ class Game extends React.Component {
         const squares = current.squares.slice();
 
         let lettersPlay = this.state.currentLettersPlay;
-        lettersPlay.forEach((value) => {
-            squares[value[0]] = value[1];
+        let score = this.calculateScore(lettersPlay, squares);
+
+        lettersPlay.letters.forEach((value) => {
+            squares[value.position] = {content: value.letter.content, point: value.letter.point};
         });
 
         this.setState({
             history: history.concat([{
                 squares: squares,
                 lettersPlay: lettersPlay,
-                index: history.length
+                index: history.length,
+                score: score,
+                playerId: this.state.currentPlayerId
             }]),
             currentLettersPlay: CURRENT_LETTERS_PLAY_INIT,
             stepNumber: history.length,
-            xIsNext: !this.state.xIsNext
+            xIsNext: !this.state.xIsNext,
         });
+
+        this.updateNextPossiblePositions(history.length, CURRENT_LETTERS_PLAY_INIT, squares);
+    }
+
+    getPlayedWordsPosition(lettersPlay) {
+        let wordsPosition = [];
+        if (lettersPlay.direction) {
+            let otherDirection;
+            if (lettersPlay.direction === 'H') {
+                otherDirection = 'V';
+            } else {
+                otherDirection = 'H';
+            }
+            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, lettersPlay.direction, lettersPlay));
+            lettersPlay.letters.forEach((value) => {
+                wordsPosition = wordsPosition.concat(this.findWordPositions(value.position, otherDirection, lettersPlay));
+            });
+        } else {
+            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, 'H', lettersPlay));
+            wordsPosition = wordsPosition.concat(this.findWordPositions(lettersPlay.firstPosition, 'V', lettersPlay));
+        }
+
+        wordsPosition = wordsPosition.filter(wordPosition => !!wordPosition);
+        return wordsPosition;
+    }
+
+    calculateScore(lettersPlay, squares) {
+        let wordsPosition = this.getPlayedWordsPosition(lettersPlay);
+
+        let score = wordsPosition.reduce((scoreSum, wordPosition) => {
+            if (!wordPosition) {
+                return scoreSum;
+            }
+            let wordMulti = 1;
+            let wordScore = 0;
+            for (let position = wordPosition.begin; position <= wordPosition.end; position = position + wordPosition.increment) {
+                if (squares[position]) {
+                    wordScore = wordScore + squares[position].point;
+                } else {
+                    let letter = this.getCurrentLettersPlay(position, lettersPlay);
+                    if (this.state.types[position] === 'mct') {
+                        wordMulti = wordMulti * 3;
+                    } else if (this.state.types[position] === 'mcd' || this.state.types[position] === 'start') {
+                        wordMulti = wordMulti * 2;
+                    }
+                    if (this.state.types[position] === 'lct') {
+                        wordScore = wordScore + letter.point * 3;
+                    } else if (this.state.types[position] === 'lcd') {
+                        wordScore = wordScore + letter.point * 2;
+                    } else {
+                        wordScore = wordScore + letter.point;
+                    }
+                }
+            }
+            return scoreSum + wordScore * wordMulti;
+        }, 0);
+
+        return score;
+    }
+
+    findWordPositions(i, direction, lettersPlay) {
+        let wordPosition;
+        if (direction === 'H') {
+            wordPosition = {
+                begin: this.findPreviousHorizontalFree(i, lettersPlay).filled,
+                end: this.findNextHorizontalFree(i, lettersPlay).filled,
+                increment: 1
+            }
+        } else {
+            wordPosition = {
+                begin: this.findPreviousVerticalFree(i, lettersPlay).filled,
+                end: this.findNextVerticalFree(i, lettersPlay).filled,
+                increment: 15
+            }
+        }
+        if (wordPosition.end === wordPosition.begin) {
+            return undefined;
+        } else {
+            return wordPosition;
+        }
+    }
+
+    cancel() {
+        const current = this.state.history[this.state.stepNumber];
+        const squares = current.squares;
+
+        this.setState({
+            currentLettersPlay: CURRENT_LETTERS_PLAY_INIT
+        });
+        this.updateNextPossiblePositions(this.state.stepNumber, CURRENT_LETTERS_PLAY_INIT, squares);
     }
 
     dropLetter(i, item) {
+        const current = this.state.history[this.state.stepNumber];
+        const squares = current.squares;
 
         let currentLettersPlay = {
             firstPosition: this.state.currentLettersPlay.firstPosition,
@@ -313,7 +420,7 @@ class Game extends React.Component {
             } else if (i > this.state.currentLettersPlay.lastPosition) {
                 currentLettersPlay.lastPosition = i;
             }
-            if (this.state.currentLettersPlay.letters.length == 1) {
+            if (this.state.currentLettersPlay.letters.length === 1) {
                 if (Math.abs(this.state.currentLettersPlay.firstPosition - i) >= 15) {
                     currentLettersPlay.direction = 'V'; // Vertical
                 } else {
@@ -328,21 +435,21 @@ class Game extends React.Component {
             currentLettersPlay: currentLettersPlay
         });
 
-        let nextPossiblePositions = this.calculateNextPossiblePositions(currentLettersPlay);
+        this.updateNextPossiblePositions(this.state.stepNumber, this.state.currentLettersPlay, squares);
+    }
+
+    updateNextPossiblePositions(turnIndex, currentLettersPlay, squares) {
+        let nextPossiblePositions = this.calculateNextPossiblePositions(turnIndex, currentLettersPlay, squares);
         this.setState({
             nextPossiblePositions: nextPossiblePositions
         });
-
     }
 
-    calculateNextPossiblePositions() {
-        const current = this.state.history[this.state.history.length - 1];
-        const squares = current.squares;
-        const currentLettersPlay = this.state.currentLettersPlay;
+    calculateNextPossiblePositions(turnIndex, currentLettersPlay, squares) {
         let possiblePositions = new Set();
 
         // Si c'est le premier coup
-        if (this.state.history.length === 1 && !current.lettersPlay) {
+        if (turnIndex === 0) {
             if (currentLettersPlay.firstPosition == null) {
                 possiblePositions.add(POSITION_START);
                 return possiblePositions;
@@ -351,12 +458,12 @@ class Game extends React.Component {
 
         // Si aucune lettre n'a encore été posée
         if (currentLettersPlay.firstPosition == null) {
-            for (let index; index < squares.length; index++) {
+            for (let index = 0; index < squares.length; index++) {
                 if (squares[index]) {
-                    possiblePositions.add(this.findPreviousHorizontalFree(index));
-                    possiblePositions.add(this.findNextHorizontalFree(index));
-                    possiblePositions.add(this.findPreviousVerticalFree(index));
-                    possiblePositions.add(this.findNextVerticalFree(index));
+                    possiblePositions.add(this.findPreviousHorizontalFree(index, currentLettersPlay).free);
+                    possiblePositions.add(this.findNextHorizontalFree(index, currentLettersPlay).free);
+                    possiblePositions.add(this.findPreviousVerticalFree(index, currentLettersPlay).free);
+                    possiblePositions.add(this.findNextVerticalFree(index, currentLettersPlay).free);
                 }
             }
             return possiblePositions;
@@ -365,17 +472,17 @@ class Game extends React.Component {
         // Si seulement 1 lettre a été posée, la direction n'est pas précisé
         if (currentLettersPlay.direction == null) {
             let currentPosition = currentLettersPlay.firstPosition;
-            possiblePositions.add(this.findPreviousHorizontalFree(currentPosition));
-            possiblePositions.add(this.findNextHorizontalFree(currentPosition));
-            possiblePositions.add(this.findPreviousVerticalFree(currentPosition));
-            possiblePositions.add(this.findNextVerticalFree(currentPosition));
+            possiblePositions.add(this.findPreviousHorizontalFree(currentPosition, currentLettersPlay).free);
+            possiblePositions.add(this.findNextHorizontalFree(currentPosition, currentLettersPlay).free);
+            possiblePositions.add(this.findPreviousVerticalFree(currentPosition, currentLettersPlay).free);
+            possiblePositions.add(this.findNextVerticalFree(currentPosition, currentLettersPlay).free);
         } else {
             if (currentLettersPlay.direction === 'V') {
-                possiblePositions.add(this.findPreviousVerticalFree(currentLettersPlay.firstPosition));
-                possiblePositions.add(this.findNextVerticalFree(currentLettersPlay.lastPosition));
+                possiblePositions.add(this.findPreviousVerticalFree(currentLettersPlay.firstPosition, currentLettersPlay).free);
+                possiblePositions.add(this.findNextVerticalFree(currentLettersPlay.lastPosition, currentLettersPlay).free);
             } else {
-                possiblePositions.add(this.findPreviousHorizontalFree(currentLettersPlay.firstPosition));
-                possiblePositions.add(this.findNextHorizontalFree(currentLettersPlay.lastPosition));
+                possiblePositions.add(this.findPreviousHorizontalFree(currentLettersPlay.firstPosition, currentLettersPlay).free);
+                possiblePositions.add(this.findNextHorizontalFree(currentLettersPlay.lastPosition, currentLettersPlay).free);
             }
         }
 
@@ -388,62 +495,74 @@ class Game extends React.Component {
         return nextPossiblePositions.has(i);
     }
 
-    findPreviousHorizontalFree(i) {
+    getLineBounds(i) {
         let restOfLineStart = i % 15;
         let endOfPreviousLine = i - restOfLineStart - 1;
-        return this.findFreeSquareInLimit(i, restOfLineStart, endOfPreviousLine, 224, -1);
-    }
 
-    findNextHorizontalFree(i) {
         let restOfLineEnd = 14 - i % 15;
         let beginOfNextLine = i + restOfLineEnd + 1;
-        return this.findFreeSquareInLimit(i, restOfLineEnd, 0, beginOfNextLine, 1);
+
+        return {begin: endOfPreviousLine, end: beginOfNextLine};
     }
 
-    findPreviousVerticalFree(i) {
-        let restOfLineStart = i < 14 ? 0 : 1;
-        let limitDown = 0;
-        return this.findFreeSquareInLimit(i, restOfLineStart, limitDown, 224, -15);
-    }
-
-    findNextVerticalFree(i) {
-        let restOfLineEnd = i > 209 ? 0 : 1;
-        let limitUp = 224;
-        return this.findFreeSquareInLimit(i, restOfLineEnd, 0, limitUp, 15);
-    }
-
-    findFreeSquareInLimit(i, rest, limitDown, limitUp, increment) {
-        let position = -1;
-        if (rest !== 0) {
-            const current = this.state.history[this.state.history.length - 1];
-            const squares = current.squares;
-            const currentLettersPlay = this.state.currentLettersPlay;
-            position = i + increment;
-            while (position > limitDown && position < limitUp && squares[position] && this.isInCurrentLettersPlay(position)) {
-                position = position + increment;
-            }
-            if (position > limitDown && position < limitUp) {
-                return position;
-            } else {
-                position = -1;
-            }
+    findPreviousHorizontalFree(i, currentLettersPlay) {
+        let bounds = this.getLineBounds(i);
+        if (i === bounds.begin + 1) {
+            return {free: -1, filled: -1};
         }
-        return position;
+        return this.findFreeSquareInLimit(i, bounds.begin, bounds.end, -1, currentLettersPlay);
     }
 
-    isInCurrentLettersPlay(i) {
-        const currentLettersPlay = this.state.currentLettersPlay;
-        if (currentLettersPlay.firstPosition !== null) {
-            if (i >= currentLettersPlay.firstPosition && i <= currentLettersPlay.lastPosition) {
-                for (let li = 0; li < currentLettersPlay.letters.length; li++) {
-                    if (currentLettersPlay.letters[li].position === i) {
-                        return true;
+    findNextHorizontalFree(i, currentLettersPlay) {
+        let bounds = this.getLineBounds(i);
+        if (i === bounds.end - 1) {
+            return {free: -1, filled: -1};
+        }
+        return this.findFreeSquareInLimit(i, bounds.begin, bounds.end, 1, currentLettersPlay);
+    }
+
+    findPreviousVerticalFree(i, currentLettersPlay) {
+        if (i < 14) {
+            return {free: -1, filled: -1};
+        }
+        return this.findFreeSquareInLimit(i, 0, 224, -15, currentLettersPlay);
+    }
+
+    findNextVerticalFree(i, currentLettersPlay) {
+        if (i > 209) {
+            return {free: -1, filled: -1};
+        }
+        return this.findFreeSquareInLimit(i, 0, 224, 15, currentLettersPlay);
+    }
+
+    findFreeSquareInLimit(i, limitDown, limitUp, increment, currentLettersPlay) {
+        const current = this.state.history[this.state.history.length - 1];
+        const squares = current.squares;
+        let oldPosition = i;
+        let position = i + increment;
+        while (position > limitDown && position < limitUp && (squares[position] || this.getCurrentLettersPlay(position, currentLettersPlay))) {
+            oldPosition = position;
+            position = position + increment;
+        }
+        if (position > limitDown && position < limitUp) {
+            return {free: position, filled: oldPosition};
+        } else {
+            return {free: -1, filled: -1};
+        }
+    }
+
+    getCurrentLettersPlay(i, lettersPlay) {
+        if (lettersPlay.firstPosition !== null) {
+            if (i >= lettersPlay.firstPosition && i <= lettersPlay.lastPosition) {
+                for (let li = 0; li < lettersPlay.letters.length; li++) {
+                    if (lettersPlay.letters[li].position === i) {
+                        return lettersPlay.letters[li].letter;
                     }
                 }
             }
         }
 
-        return false;
+        return undefined;
     }
 
     isNextToALetter(i, squares) {
@@ -478,13 +597,6 @@ class Game extends React.Component {
         const current = history[this.state.stepNumber];
         const types = this.state.types;
         const currentLettersPlay = this.state.currentLettersPlay;
-        const winner = calculateWinner(current.squares);
-        let status;
-        if (winner) {
-            status = winner + ' a gagné';
-        } else {
-            status = 'Prochain joueur ' + (this.state.xIsNext ? 'X' : 'O');
-        }
 
         if (!this.state.movesInChronoOrder) {
             history.reverse();
@@ -494,9 +606,9 @@ class Game extends React.Component {
             let button;
             let word;
 
-            if (step.index) {
-                word = step.lettersPlay.map((value) => {
-                    return value[1][0];
+            if (step.index && step.lettersPlay) {
+                word = step.lettersPlay.letters.map((value) => {
+                    return value.letter.content;
                 });
 
                 button = <button onClick={() => this.jumpTo(step.index)}>Revenir au tour n° <b>{step.index}</b> - ( {word} )</button>
@@ -510,10 +622,25 @@ class Game extends React.Component {
             )
         });
 
-        const players = this.state.players.map((player, index) => {
+        const players = this.state.players.map((player) => {
+            let total = 0;
+            let scores = [];
+            this.state.history.forEach((turn) => { if (turn.playerId === player.id) {
+                total = total + turn.score;
+                scores = scores.concat(turn.score);
+            }});
             return (
-                <div className="player-score" key={index}>
-                    {player}
+                <div className="player-score" key={player.id}>
+                    <div>{player.name} : {total}</div>
+                    <div className="score">
+                    {
+                        scores.map((score) => {
+                            return (
+                                <div>{score}</div>
+                            )
+                        })
+                    }
+                    </div>
                 </div>
             )
         });
@@ -538,7 +665,7 @@ class Game extends React.Component {
                                 {players}
                             </div>
                         </div>
-                        <Desk />
+                        <Desk lettersPlayed={this.state.currentLettersPlay} validate={() => this.validate()} cancel={() => this.cancel()}/>
                     </div>
                 </div>
             </DndProvider>
@@ -552,23 +679,3 @@ ReactDOM.render(
     <Game />,
     document.getElementById('root')
 );
-
-function calculateWinner(squares) {
-    const lines = [
-        [0, 1, 2],
-        [3, 4, 5],
-        [6, 7, 8],
-        [0, 3, 6],
-        [1, 4, 7],
-        [2, 5, 8],
-        [0, 4, 8],
-        [2, 4, 6],
-    ];
-    for (let i = 0; i < lines.length; i++) {
-        const [a, b, c] = lines[i];
-        if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-            return squares[a];
-        }
-    }
-    return null;
-}
