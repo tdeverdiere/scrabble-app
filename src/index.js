@@ -1,10 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { DndProvider } from 'react-dnd'
-import { useDrag } from 'react-dnd'
-import { useDrop } from 'react-dnd'
 import Backend from 'react-dnd-html5-backend'
 
+import { Board } from './board.js';
+import { Desk } from './desk.js';
 import './index.css';
 
 let boardSize = 255;
@@ -20,178 +20,9 @@ let INITIAL_DESK_LETTERS =  [
     {id: 7, letter: {content: 'U', point: 1}}
 ];
 
-export const ItemTypes = {
-    LETTER: 'letter',
-}
-
 const CURRENT_LETTERS_PLAY_INIT = { firstPosition: null, lastPosition: null, direction: null, letters: Array(0)};
 
-function Letter(props) {
-    const [{ isDragging }, drag] = useDrag({
-        item: { type: ItemTypes.LETTER, id: props.id, content: props.content, point: props.point },
-        canDrag: props.moveable,
-        collect: monitor => ({
-            isDragging: !!monitor.isDragging(),
-        }),
-        end: (dropResult, monitor) => {
-            const { id: droppedId, originalIndex } = monitor.getItem()
-            const didDrop = monitor.didDrop()
-            if (!didDrop && droppedId) {
-                props.moveLetter(droppedId, originalIndex)
-            }
-        },
-    });
-
-    const [, drop] = useDrop({
-        accept: ItemTypes.LETTER,
-        canDrop: () => false,
-        hover({ id: draggedId }) {
-            if (props.id && draggedId !== props.id) {
-                const { index: overIndex } = props.findLetter(props.id)
-                props.moveLetter(draggedId, overIndex)
-            }
-        },
-    })
-
-
-    return (
-        <div ref={(node) => drag(drop(node))} className="square">
-            <div className={(props.isNewLetter ? "square-letter-new " : "") + "square-letter"} style={{opacity: isDragging ? 0.5 : 1}}>
-                <div className="letter">{props.content}</div>
-                <div className="point">{props.point}</div>
-            </div>
-        </div>
-    );
-}
-
-function Square(props) {
-    let className;
-    let content;
-
-    const [{ isOver, canDrop }, drop] = useDrop({
-        accept: ItemTypes.LETTER,
-        drop: (item) => props.dropLetter(item),
-        canDrop: (item) => props.canDropLetter(item),
-        collect: mon => ({
-            isOver: !!mon.isOver(),
-            canDrop: !!mon.canDrop()
-        }),
-    });
-
-    if (props.type === 'mct') {
-        className = 'square square-empty square-mct';
-        content = 'MOT TRIPLE';
-    } else if (props.type === 'mcd') {
-        className = 'square square-empty square-mcd';
-        content = 'MOT DOUBLE';
-    } else if (props.type === 'start') {
-        className = 'square square-empty square-start';
-        content = 'X';
-    } else if (props.type === 'lct') {
-        className = 'square square-empty square-lct';
-        content = 'LETTRE TRIPLE';
-    } else if (props.type === 'lcd') {
-        className = 'square square-empty square-lcd';
-        content = 'LETTRE DOUBLE';
-    } else {
-        className = 'square square-empty square-standard';
-    }
-    return (
-        <div ref={drop} className={className + (isOver ? ' square-drop':'') + (canDrop && !isOver ? ' square-candrop' : ' ')} >
-            <div className="square-empty-content">{content}</div>
-        </div>
-    );
-
-}
-
-class Board extends React.Component {
-
-    renderSquare(i) {
-        let currentLetterPlayed = this.getCurrentLettersPlay(i);
-
-        if (currentLetterPlayed) {
-            return (
-                <Letter content={currentLetterPlayed.content} point={currentLetterPlayed.point} moveable={false} isNewLetter={true}></Letter>
-            );
-        } else if (this.props.squares[i]) {
-            return (
-                <Letter content={this.props.squares[i].content} point={this.props.squares[i].point} moveable={false} isNewLetter={false}></Letter>
-            );
-        } else {
-            return (
-                <Square position={i} type={this.props.types[i]} dropLetter={(item) => this.props.dropLetter(i, item)} canDropLetter={(item) => this.props.canDropLetter(i, item)}/>
-            );
-        }
-    }
-
-    getCurrentLettersPlay(i) {
-        const currentLettersPlay = this.props.currentLettersPlay;
-        if (currentLettersPlay.firstPosition !== null) {
-            if (i >= currentLettersPlay.firstPosition && i <= currentLettersPlay.lastPosition) {
-                for (let li = 0; li < currentLettersPlay.letters.length; li++) {
-                    if (currentLettersPlay.letters[li].position === i) {
-                        return currentLettersPlay.letters[li].letter;
-                    }
-                }
-            }
-        }
-
-        return undefined;
-    }
-
-    render() {
-        let boardRow = Array(15);
-        for (let row = 0; row < 15; row++) {
-            let cols = Array(3);
-            for (let col = 0; col < 15; col++) {
-                cols[col] = (<span key={row + '-' + col}>{this.renderSquare(col + row*15)}</span>)
-            }
-            boardRow[row] = <div key={row} className="board-row">{cols}</div>
-        }
-        return (
-            <div>
-                {boardRow}
-            </div>
-        );
-    }
-}
-
-function Desk({deskLetters, lettersPlayed, validate, cancel, moveDeskLetter, findDeskLetter}) {
-    const [, drop] = useDrop({ accept: ItemTypes.LETTER })
-
-    let letters = deskLetters.map((value, index) => {
-        return (
-            <Letter key={value.id} id={value.id} content={value.letter.content} point={value.letter.point}
-                    moveable={true} moveLetter={(id, atIndex) => moveDeskLetter(id, atIndex, deskLetters)} findLetter={(id) => findDeskLetter(id, deskLetters)} isNewLetter={false}/>
-        );
-    });
-
-    let buttonValidate;
-    let buttonReset;
-    if (lettersPlayed.firstPosition) {
-        let word = '';
-        lettersPlayed.letters.forEach((value) => {
-            word = word + value.letter.content
-        });
-        buttonValidate = (<div ><button onClick={() => validate()}>Validate {word}</button></div>);
-        buttonReset = (<div ><button onClick={() => cancel()}>Reset</button></div>);
-    }
-    return (
-        <div ref={drop} className="letters-pick">
-            <div className="desk">
-                <div className="desk-inner">
-                    {letters}
-                </div>
-            </div>
-            {buttonValidate}
-            {buttonReset}
-        </div>
-    )
-}
-
 class Game extends React.Component {
-
-
     constructor(props) {
         super(props);
         let types =  Array(boardSize).fill('square-standard');
