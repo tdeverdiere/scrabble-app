@@ -555,32 +555,12 @@ class Game extends React.Component {
         return undefined;
     }
 
-    isNextToALetter(i, squares) {
-        if ((i < 224 && squares[i + 1]) || ( i > 0 && squares[i - 1])) {
-            return true;
-        }
-        if ((i < 110 && squares[i + 15]) || ( i > 14 && squares[i - 15])) {
-            return true;
-        }
-        return false;
-    }
-
-    isStartPosition(i) {
-        return i === 112;
-    }
-
     jumpTo(step) {
         this.setState({
             stepNumber: step,
             xIsNext: (step % 2) === 0
         });
         this.updateNextPossiblePositions(step, CURRENT_LETTERS_PLAY_INIT, this.state.history[step].squares)
-    }
-
-    reverseMovesOrder() {
-        this.setState({
-            movesInChronoOrder: !this.state.movesInChronoOrder
-        })
     }
 
     moveDeskLetter(id, atIndex, deskLetters) {
