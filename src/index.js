@@ -78,7 +78,8 @@ class Game extends React.Component {
                 squares: Array(boardSize).fill(null),
                 lettersPlay: null,
                 index: 0,
-                scores: Array(players.length)
+                scores: Array(players.length),
+                deskLetters: INITIAL_DESK_LETTERS
             }],
             types: types,
             currentLettersPlay: CURRENT_LETTERS_PLAY_INIT,
@@ -105,13 +106,16 @@ class Game extends React.Component {
         let score = this.boardPlay.calculateScore();
         this.boardPlay.updateSquares();
 
+        // TODO get more letters
+
         this.setState({
             history: history.concat([{
                 squares: this.boardPlay.squares,
                 lettersPlay: this.boardPlay.currentLettersPlay,
                 index: history.length,
                 score: score,
-                playerId: this.state.currentPlayerId
+                playerId: this.state.currentPlayerId,
+                deskLetters: this.state.deskLetters.slice()
             }]),
             currentLettersPlay: CURRENT_LETTERS_PLAY_INIT,
             stepNumber: history.length,
@@ -121,6 +125,8 @@ class Game extends React.Component {
         this.boardPlay.currentLettersPlay = CURRENT_LETTERS_PLAY_INIT;
 
         this.updateNextPossiblePositions(history.length);
+
+        // TODO send result to server.
     }
 
     cancel() {
@@ -178,9 +184,11 @@ class Game extends React.Component {
     }
 
     jumpTo(step) {
+        const current = this.state.history[step];
         this.setState({
             stepNumber: step,
-            xIsNext: (step % 2) === 0
+            xIsNext: (step % 2) === 0,
+            deskLetters: current.deskLetters
         });
         this.boardPlay.currentLettersPlay = CURRENT_LETTERS_PLAY_INIT;
         this.boardPlay.squares = this.state.history[step].squares;
